@@ -4,7 +4,7 @@ use libc::{__s32, __u16, __u32, __u64, __u8};
 use std::io::Error;
 use std::mem;
 use std::os::unix::ffi::OsStrExt;
-use std::slice;
+use std::ffi::c_void;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
@@ -389,21 +389,19 @@ pub fn fanotify_mark<P: ?Sized + FanotifyPath>(
     }
 }
 
-pub fn fanotify_read(fanotify_fd: i32) -> Vec<FanotifyEventMetadata> {
-    let mut vec = Vec::new();
+pub fn fanotify_read(fanotify_fd: i32) -> Result<Vec<FanotifyEventMetadata>, Error> {
+    let mut vec: Vec<FanotifyEventMetadata> = Vec::new();
+    vec.reserve(200);
     unsafe {
-        let buffer = libc::malloc(FAN_EVENT_METADATA_LEN * 200);
-        let sizeof = libc::read(fanotify_fd, buffer, FAN_EVENT_METADATA_LEN * 200);
-        if sizeof != libc::EAGAIN as isize && sizeof > 0 {
-            let src = slice::from_raw_parts(
-                buffer.cast::<FanotifyEventMetadata>(),
-                sizeof as usize / FAN_EVENT_METADATA_LEN,
-            );
-            vec.extend_from_slice(src);
+        let nread = libc::read(fanotify_fd, vec.as_mut_ptr() as *mut c_void, FAN_EVENT_METADATA_LEN * 200);
+        if nread < 0 {
+            return Err(Error::last_os_error())
+        } else {
+            let cnt = nread as usize / FAN_EVENT_METADATA_LEN;
+            vec.set_len(cnt);
         }
-        libc::free(buffer);
     }
-    vec
+    Ok(vec)
 }
 
 pub fn close_fd(fd: i32) {

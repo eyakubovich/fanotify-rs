@@ -1,10 +1,8 @@
-use crate::FanotifyPath;
 use libc;
 use libc::{__s32, __u16, __u32, __u64, __u8};
 use std::io::Error;
 use std::mem;
-use std::os::unix::ffi::OsStrExt;
-use std::ffi::c_void;
+use std::ffi::{c_void, CString};
 
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
@@ -282,19 +280,6 @@ pub fn fanotify_init(flags: u32, event_f_flags: u32) -> Result<i32, Error> {
     }
 }
 
-/// Helper macro to get path pointer for an expected primitive type (depending
-/// on architecture).
-macro_rules! path_ptr_for_type {
-    ($type:ident, $path:expr) => {
-        $path
-            .as_os_str()
-            .as_bytes()
-            .iter()
-            .map(|p| *p as $type)
-            .collect::<Vec<$type>>()
-            .as_ptr()
-    };
-}
 /// Helper macro to get path pointer (implemented separately for each
 /// architecture.
 #[cfg(target_arch = "x86_64")]
@@ -374,18 +359,20 @@ macro_rules! path_ptr {
 /// let fd = fanotify_init(FAN_CLASS_NOTIF, O_RDONLY).unwrap();
 /// fanotify_mark(fd, FAN_MARK_ADD, FAN_OPEN | FAN_CLOSE, AT_FDCWD, "./").unwrap();
 /// ```
-pub fn fanotify_mark<P: ?Sized + FanotifyPath>(
+pub fn fanotify_mark<P: ?Sized + Into<Vec<u8>>>(
     fanotify_fd: i32,
     flags: u32,
     mask: u64,
     dirfd: i32,
-    path: &P,
+    path: P,
 ) -> Result<(), Error> {
+    let path = CString::new(path)?;
+
     unsafe {
-        return match libc::fanotify_mark(fanotify_fd, flags, mask, dirfd, path_ptr!(path)) {
+        match libc::fanotify_mark(fanotify_fd, flags, mask, dirfd, path.as_ptr()) {
             0 => Ok(()),
             _ => Err(Error::last_os_error()),
-        };
+        }
     }
 }
 

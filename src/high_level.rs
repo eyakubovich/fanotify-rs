@@ -4,7 +4,6 @@ use crate::low_level::{
     FAN_MARK_ADD, FAN_MARK_FLUSH, FAN_MARK_MOUNT, FAN_MARK_REMOVE, FAN_NONBLOCK, O_CLOEXEC,
     O_RDONLY,
 };
-use crate::FanotifyPath;
 use enum_iterator::{all, Sequence};
 use std::fs::read_link;
 use std::io::Error;
@@ -156,26 +155,26 @@ impl Fanotify {
         }
     }
 
-    pub fn add_path<P: ?Sized + FanotifyPath>(&self, mode: u64, path: &P) -> Result<(), Error> {
+    pub fn add_path<P: ?Sized + Into<Vec<u8>>>(&self, mode: u64, path: P) -> Result<(), Error> {
         fanotify_mark(self.fd, FAN_MARK_ADD, mode, AT_FDCWD, path)?;
         Ok(())
     }
 
-    pub fn add_mountpoint<P: ?Sized + FanotifyPath>(
+    pub fn add_mountpoint<P: ?Sized + Into<Vec<u8>>>(
         &self,
         mode: u64,
-        path: &P,
+        path: P,
     ) -> Result<(), Error> {
         fanotify_mark(self.fd, FAN_MARK_ADD | FAN_MARK_MOUNT, mode, AT_FDCWD, path)?;
         Ok(())
     }
 
-    pub fn remove_path<P: ?Sized + FanotifyPath>(&self, mode: u64, path: &P) -> Result<(), Error> {
+    pub fn remove_path<P: ?Sized + Into<Vec<u8>>>(&self, mode: u64, path: P) -> Result<(), Error> {
         fanotify_mark(self.fd, FAN_MARK_REMOVE, mode, AT_FDCWD, path)?;
         Ok(())
     }
 
-    pub fn flush_path<P: ?Sized + FanotifyPath>(&self, mode: u64, path: &P) -> Result<(), Error> {
+    pub fn flush_path<P: ?Sized + Into<Vec<u8>>>(&self, mode: u64, path: P) -> Result<(), Error> {
         fanotify_mark(self.fd, FAN_MARK_FLUSH, mode, AT_FDCWD, path)?;
         Ok(())
     }
